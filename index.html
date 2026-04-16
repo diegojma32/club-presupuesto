@@ -93,12 +93,24 @@ tr:hover td{background:#1e2334}
     <button class="sb-btn" onclick="ir('breakeven',this)">⊙ Punto de equilibrio</button>
     <button class="sb-btn" onclick="ir('ranking',this)">≡ Ranking actividades</button>
     <button class="sb-btn" onclick="ir('cuotas',this)">◐ Socios y cuotas</button>
+    <div class="sb-separador">Actividad</div>
+    <select id="f-act" onchange="renderVista()" style="margin:4px 12px;width:calc(100% - 24px);background:#1e2334;border:1px solid #2a3045;color:#e8eaf0;border-radius:6px;padding:6px 8px;font-size:12px">
+      <option value="todas">Todas las actividades</option>
+    </select>
     <div class="sb-separador">Período</div>
     <select id="f-per" onchange="renderVista()" style="margin:4px 12px;width:calc(100% - 24px);background:#1e2334;border:1px solid #2a3045;color:#e8eaf0;border-radius:6px;padding:6px 8px;font-size:12px">
       <option value="12">Año completo</option>
-      <option value="3">Q1 Ene–Mar</option>
-      <option value="6">H1 Ene–Jun</option>
-      <option value="9">Ene–Sep</option>
+      <option value="1">Enero</option>
+      <option value="2">Febrero</option>
+      <option value="3">Marzo</option>
+      <option value="4">Abril</option>
+      <option value="5">Mayo</option>
+      <option value="6">Junio</option>
+      <option value="7">Julio</option>
+      <option value="8">Agosto</option>
+      <option value="9">Septiembre</option>
+      <option value="10">Octubre</option>
+      <option value="11">Noviembre</option>
     </select>
     <button class="sb-nuevo" onclick="reiniciar()">↩ Cambiar archivo</button>
   </nav>
@@ -264,6 +276,12 @@ function iniciar() {
   document.getElementById('pantalla-carga').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('sb-nombre').textContent = D.club + ' · ' + D.ejercicio;
+  // Populate activity filter
+  var fAct = document.getElementById('f-act');
+  fAct.innerHTML = '<option value="todas">Todas las actividades</option>';
+  D.actividades.forEach(function(a) {
+    fAct.innerHTML += '<option value="'+a.nombre+'">'+a.nombre+'</option>';
+  });
   renderVista();
 }
 
@@ -282,6 +300,21 @@ function ir(vista, btn) {
   document.getElementById('v-'+vista).classList.add('activa');
   btn.classList.add('activo');
   renderVista();
+}
+
+function getActFiltro() {
+  var sel = document.getElementById('f-act');
+  if (!sel) return D.actividades;
+  var val = sel.value;
+  if (val === 'todas') return D.actividades;
+  return D.actividades.filter(function(a){ return a.nombre === val; });
+}
+
+function getSegFiltro() {
+  var sel = document.getElementById('f-act');
+  if (!sel || sel.value === 'todas') return D.seg;
+  var val = sel.value;
+  return D.seg.filter(function(s){ return s.area.indexOf(val) >= 0; });
 }
 
 function renderVista() {
@@ -311,6 +344,14 @@ function sem(d) {
   return ['sr','🔴 Alerta'];
 }
 function semb(d) { var s=sem(d); return '<span class="sem '+s[0]+'">'+s[1]+'</span>'; }
+
+function abrev(nombre) {
+  var map = {'Básquet':'BAS','Fútbol':'FUT','Vóley':'VOL','Taekwondo':'TAE','Natación':'NAT',
+             'Tenis':'TEN','Bádminton':'BAD','Lucha':'LUC','Atletismo':'ATL','Actividades varias':'ACT',
+             'Institucional':'INST','Concesiones':'CON'};
+  if (map[nombre]) return map[nombre];
+  return nombre.substring(0,4).toUpperCase();
+}
 
 function ingMensual(a) {
   var q = D.cuotas;
@@ -351,11 +392,12 @@ function mkChart(id, tipo, datos, opts) {
 function renderResumen() {
   var m = per();
   var tPres=0, tReal=0, tIng=0;
-  D.seg.forEach(function(a){ tPres+=a.pres.slice(0,m).reduce(function(s,v){return s+v;},0); tReal+=a.real.slice(0,m).reduce(function(s,v){return s+v;},0); });
-  D.actividades.forEach(function(a){ tIng+=ingMensual(a)*12; });
+  var segF=getSegFiltro(), actF=getActFiltro();
+  segF.forEach(function(a){ tPres+=a.pres.slice(0,m).reduce(function(s,v){return s+v;},0); tReal+=a.real.slice(0,m).reduce(function(s,v){return s+v;},0); });
+  actF.forEach(function(a){ tIng+=ingMensual(a)*12; });
   var res=tIng-tPres, ejec=tPres>0?tReal/tPres:0, desv=tPres>0?(tReal-tPres)/tPres:0;
   var alertas=0;
-  D.seg.forEach(function(a){ var p=a.pres.slice(0,m).reduce(function(s,v){return s+v;},0),r=a.real.slice(0,m).reduce(function(s,v){return s+v;},0); if(p>0&&(r-p)/p>D.u_ar)alertas++; });
+  segF.forEach(function(a){ var p=a.pres.slice(0,m).reduce(function(s,v){return s+v;},0),r=a.real.slice(0,m).reduce(function(s,v){return s+v;},0); if(p>0&&(r-p)/p>D.u_ar)alertas++; });
 
   document.getElementById('sub-resumen').textContent = D.club+' · '+D.ejercicio+' · '+MESES.slice(0,m).join('–');
   document.getElementById('kpis-resumen').innerHTML =
@@ -367,21 +409,21 @@ function renderResumen() {
     kpi('Áreas en alerta',alertas,'Desvío > '+fmtp(D.u_ar),alertas===0?'verde':alertas<=2?'amarillo':'rojo');
 
   var pm=Array(m).fill(0), rm=Array(m).fill(0);
-  D.seg.forEach(function(a){ a.pres.slice(0,m).forEach(function(v,i){pm[i]+=v;}); a.real.slice(0,m).forEach(function(v,i){rm[i]+=v;}); });
+  segF.forEach(function(a){ a.pres.slice(0,m).forEach(function(v,i){pm[i]+=v;}); a.real.slice(0,m).forEach(function(v,i){rm[i]+=v;}); });
   mkChart('ch-mensual','bar',{labels:MESES.slice(0,m),datasets:[
     {label:'Presupuesto',data:pm,backgroundColor:'rgba(79,124,255,.3)',borderColor:'#4f7cff',borderWidth:1.5,borderRadius:4},
     {label:'Real',data:rm,backgroundColor:'rgba(54,217,160,.3)',borderColor:'#36d9a0',borderWidth:1.5,borderRadius:4}
   ]},{plugins:{legend:{display:true,labels:{color:'#7880a0',boxWidth:10,padding:14}}}});
 
   var sl='';
-  D.seg.forEach(function(a){
+  segF.forEach(function(a){
     var p=a.pres.slice(0,m).reduce(function(s,v){return s+v;},0),r=a.real.slice(0,m).reduce(function(s,v){return s+v;},0),d=p>0?(r-p)/p:0;
     sl+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #2a3045"><span style="font-size:12px">'+a.area+'</span>'+semb(d)+'</div>';
   });
   document.getElementById('sem-lista').innerHTML=sl;
 
   mkChart('ch-ing','bar',{labels:D.actividades.map(function(a){return a.nombre;}),datasets:[{label:'Ing. anual',data:D.actividades.map(function(a){return ingMensual(a)*12;}),backgroundColor:PAL,borderRadius:4,borderWidth:0}]},{indexAxis:'y'});
-  mkChart('ch-donut','doughnut',{labels:D.seg.map(function(a){return a.area.replace(/^[^ ]+ /,'');}),datasets:[{data:D.seg.map(function(a){return a.pres.reduce(function(s,v){return s+v;},0);}),backgroundColor:PAL,borderWidth:0,hoverOffset:6}]},{cutout:'62%',plugins:{legend:{display:true,position:'right',labels:{color:'#7880a0',boxWidth:8,padding:8,font:{size:10}}}}});
+  mkChart('ch-donut','doughnut',{labels:segF.map(function(a){return abrev(a.area.replace(/^[^ ]+ /,''));}),datasets:[{data:segF.map(function(a){return a.pres.reduce(function(s,v){return s+v;},0);}),backgroundColor:PAL,borderWidth:0,hoverOffset:6}]},{cutout:'62%',plugins:{legend:{display:true,position:'right',labels:{color:'#7880a0',boxWidth:8,padding:8,font:{size:10}}}}});
 }
 
 // ── DESVÍOS ─────────────────────────────────────────────────────────────────
@@ -389,13 +431,14 @@ function renderDesvios() {
   var m=per(), tb=document.getElementById('tb-desv'); tb.innerHTML='';
   var tP=0,tR=0,rojos=0,verdes=0,mD=0,mA='';
   var labs=[],dvals=[],cols=[];
-  D.seg.forEach(function(a){
+  var segF2=getSegFiltro();
+  segF2.forEach(function(a){
     var p=a.pres.slice(0,m).reduce(function(s,v){return s+v;},0),r=a.real.slice(0,m).reduce(function(s,v){return s+v;},0),d=r-p,dp=p>0?d/p:0;
     tP+=p; tR+=r;
     if(Math.abs(d)>Math.abs(mD)){mD=d;mA=a.area;}
     var sc=sem(dp);
     if(sc[0]==='sg')verdes++; if(sc[0]==='sr')rojos++;
-    labs.push(a.area.replace(/^[^ ]+ /,''));
+    labs.push(abrev(a.area.replace(/^[^ ]+ /,'')));
     dvals.push(d);
     cols.push(sc[0]==='sg'?'rgba(54,217,160,.6)':sc[0]==='sy'?'rgba(245,166,35,.6)':'rgba(240,82,82,.6)');
     var desv_row = '<tr><td>'+a.area+'</td>';
@@ -427,10 +470,11 @@ function renderBE() {
   var auto=0,mod=0,crit=0,extra=0;
   var cards=document.getElementById('be-cards'); cards.innerHTML='';
   var labs=[],nec=[],act=[];
-  D.actividades.forEach(function(a){
+  var actF2=getActFiltro();
+  actF2.forEach(function(a){
     var m2d=D.m2[a.nombre]||{}, ci=m2d.costo||0, im=ingMensual(a), ts=a.total;
     var cp=ts>0?im/ts:0, sn=cp>0?Math.ceil(ci/(cp*12)):999, cob=sn>0?ts/sn:0, se=Math.max(0,sn-ts);
-    extra+=se; labs.push(a.nombre); nec.push(sn); act.push(ts);
+    extra+=se; labs.push(abrev(a.nombre)); nec.push(sn); act.push(ts);
     var col=cob>=1?'#36d9a0':cob>=0.7?'#f5a623':'#f05252';
     var lbl=cob>=1?'🟢 Auto':cob>=0.7?'🟡 Sub':'🔴 Crítica';
     if(cob>=1)auto++; else if(cob>=0.7)mod++; else crit++;
@@ -460,7 +504,8 @@ function renderBE() {
 
 // ── RANKING ───────────────────────────────────────────────────────────────────
 function renderRanking() {
-  var rows=D.actividades.map(function(a){
+  var actF3=getActFiltro();
+  var rows=actF3.map(function(a){
     var m2d=D.m2[a.nombre]||{}, ing=ingMensual(a)*12, ci=m2d.costo||0, neto=ing-ci;
     var margen=ci>0?neto/ci:0, m2ef=m2d.m2ef||0, rm2=m2ef>0?neto/m2ef:0;
     return {n:a.nombre,ts:a.total,cd:a.cuota_dep,ing:ing,ci:ci,neto:neto,margen:margen,m2ef:m2ef,rm2:rm2};
@@ -470,15 +515,16 @@ function renderRanking() {
     var est=r.neto>0?'<span class="sem sg">🟢 Rentable</span>':r.neto>-r.ing*.3?'<span class="sem sy">🟡 Aceptable</span>':'<span class="sem sr">🔴 Deficitaria</span>';
     tb.innerHTML+='<tr><td style="color:#7880a0">'+(i+1)+'</td><td style="font-weight:600">'+r.n+'</td><td class="r">'+r.ts+'</td><td class="r">'+fmt(r.ing)+'</td><td class="r">'+fmt(r.ci)+'</td><td class="r '+(r.neto>=0?'neg':'pos')+'" style="font-weight:700">'+fmts(r.neto)+'</td><td class="r '+(r.margen>=0?'neg':'pos')+'">'+fmtp(r.margen)+'</td><td class="r">'+r.m2ef.toFixed(0)+' m²</td><td class="r '+(r.rm2>=0?'neg':'pos')+'">'+fmts(r.rm2)+'</td><td>'+est+'</td></tr>';
   });
-  mkChart('ch-rank','bar',{labels:rows.map(function(r){return r.n;}),datasets:[{label:'Resultado neto',data:rows.map(function(r){return r.neto;}),backgroundColor:rows.map(function(r){return r.neto>=0?'rgba(54,217,160,.5)':'rgba(240,82,82,.5)';}),borderColor:rows.map(function(r){return r.neto>=0?'#36d9a0':'#f05252';}),borderWidth:1.5,borderRadius:4}]},{indexAxis:'y'});
-  mkChart('ch-m2','bar',{labels:rows.map(function(r){return r.n;}),datasets:[{label:'Rent./m²',data:rows.map(function(r){return r.rm2;}),backgroundColor:rows.map(function(r){return r.rm2>=0?'rgba(79,124,255,.5)':'rgba(240,82,82,.5)';}),borderColor:rows.map(function(r){return r.rm2>=0?'#4f7cff':'#f05252';}),borderWidth:1.5,borderRadius:4}]},{indexAxis:'y'});
+  mkChart('ch-rank','bar',{labels:rows.map(function(r){return abrev(r.n);}),datasets:[{label:'Resultado neto',data:rows.map(function(r){return r.neto;}),backgroundColor:rows.map(function(r){return r.neto>=0?'rgba(54,217,160,.5)':'rgba(240,82,82,.5)';}),borderColor:rows.map(function(r){return r.neto>=0?'#36d9a0':'#f05252';}),borderWidth:1.5,borderRadius:4}]},{indexAxis:'y'});
+  mkChart('ch-m2','bar',{labels:rows.map(function(r){return abrev(r.n);}),datasets:[{label:'Rent./m²',data:rows.map(function(r){return r.rm2;}),backgroundColor:rows.map(function(r){return r.rm2>=0?'rgba(79,124,255,.5)':'rgba(240,82,82,.5)';}),borderColor:rows.map(function(r){return r.rm2>=0?'#4f7cff':'#f05252';}),borderWidth:1.5,borderRadius:4}]},{indexAxis:'y'});
 }
 
 // ── CUOTAS ────────────────────────────────────────────────────────────────────
 function renderCuotas() {
   var tb=document.getElementById('tb-cuotas'); tb.innerHTML='';
   var tS=0,tM=0;
-  D.actividades.forEach(function(a){
+  var actF4=getActFiltro();
+  actF4.forEach(function(a){
     var im=ingMensual(a); tS+=a.total; tM+=im;
     tb.innerHTML+='<tr><td style="font-weight:600">'+a.nombre+'</td>'+a.socios.map(function(s){return '<td class="r">'+s+'</td>';}).join('')+'<td class="r" style="font-weight:600">'+a.total+'</td><td class="r">'+fmt(a.cuota_dep)+'/mes</td><td class="r" style="color:#36d9a0">'+fmt(im)+'</td><td class="r" style="color:#36d9a0">'+fmt(im*12)+'</td></tr>';
   });
@@ -488,15 +534,15 @@ function renderCuotas() {
     kpi('Ingreso mensual',fmt(tM),'Por cuotas todas las actividades','verde') +
     kpi('Ingreso anual estimado',fmt(tM*12),'Proyectado a 12 meses','verde') +
     kpi('Cuota promedio',fmt(tS>0?tM/tS:0),'Por socio / mes','');
-  mkChart('ch-soc','bar',{labels:D.actividades.map(function(a){return a.nombre;}),datasets:[
-    {label:'Infantil',data:D.actividades.map(function(a){return a.socios[0];}),backgroundColor:'rgba(79,124,255,.8)',borderRadius:2,borderWidth:0},
-    {label:'Adulto',data:D.actividades.map(function(a){return a.socios[1];}),backgroundColor:'rgba(54,217,160,.8)',borderRadius:2,borderWidth:0},
-    {label:'Familiar',data:D.actividades.map(function(a){return a.socios[2];}),backgroundColor:'rgba(245,166,35,.8)',borderRadius:2,borderWidth:0},
-    {label:'No pract.',data:D.actividades.map(function(a){return a.socios[3];}),backgroundColor:'rgba(240,82,82,.7)',borderRadius:2,borderWidth:0},
-    {label:'Vitalicio',data:D.actividades.map(function(a){return a.socios[4];}),backgroundColor:'rgba(167,139,250,.8)',borderRadius:2,borderWidth:0}
+  mkChart('ch-soc','bar',{labels:actF4.map(function(a){return abrev(a.nombre);}),datasets:[
+    {label:'Infantil',data:actF4.map(function(a){return a.socios[0];}),backgroundColor:'rgba(79,124,255,.8)',borderRadius:2,borderWidth:0},
+    {label:'Adulto',data:actF4.map(function(a){return a.socios[1];}),backgroundColor:'rgba(54,217,160,.8)',borderRadius:2,borderWidth:0},
+    {label:'Familiar',data:actF4.map(function(a){return a.socios[2];}),backgroundColor:'rgba(245,166,35,.8)',borderRadius:2,borderWidth:0},
+    {label:'No pract.',data:actF4.map(function(a){return a.socios[3];}),backgroundColor:'rgba(240,82,82,.7)',borderRadius:2,borderWidth:0},
+    {label:'Vitalicio',data:actF4.map(function(a){return a.socios[4];}),backgroundColor:'rgba(167,139,250,.8)',borderRadius:2,borderWidth:0}
   ]},{plugins:{legend:{display:true,labels:{color:'#7880a0',boxWidth:8,padding:10}}},scales:{x:{stacked:true},y:{stacked:true}}});
   var totCat=[0,0,0,0,0];
-  D.actividades.forEach(function(a){a.socios.forEach(function(v,i){totCat[i]+=v;});});
+  actF4.forEach(function(a){a.socios.forEach(function(v,i){totCat[i]+=v;});});
   mkChart('ch-mix','doughnut',{labels:CATS_SOC,datasets:[{data:totCat,backgroundColor:['rgba(79,124,255,.8)','rgba(54,217,160,.8)','rgba(245,166,35,.8)','rgba(240,82,82,.7)','rgba(167,139,250,.8)'],borderWidth:0,hoverOffset:6}]},{cutout:'55%',plugins:{legend:{display:true,position:'bottom',labels:{color:'#7880a0',boxWidth:8,padding:10,font:{size:10}}}}});
 }
 </script>

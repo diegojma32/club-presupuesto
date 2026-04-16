@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sistema Presupuestario — Club Deportivo</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>:root{--font-override:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;--mono-override:"Courier New",Courier,monospace;}</style>
+<style>
+:root{
+  --bg:#0f1117;--bg2:#171b26;--bg3:#1e2334;--border:#2a3045;
+  --text:#e8eaf0;--muted:#7880a0;--accent:#4f7cff;--green:#36d9a0;
+  --yellow:#f5a623;--red:#f05252;--white:#ffffff;
+  --font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh}
+
+/* UPLOAD SCREEN */
+.upload-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px;text-align:center}
+.upload-logo{font-size:48px;margin-bottom:20px}
+.upload-title{font-size:28px;font-weight:600;margin-bottom:8px}
+.upload-sub{color:var(--muted);font-size:14px;margin-bottom:40px;line-height:1.6}
+.upload-zone{border:2px dashed var(--border);border-radius:16px;padding:48px 64px;cursor:pointer;transition:all .2s;max-width:480px;width:100%}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(79,124,255,.05)}
+.upload-zone-icon{font-size:36px;margin-bottom:12px}
+.upload-zone-label{font-size:15px;font-weight:500;margin-bottom:6px}
+.upload-zone-hint{font-size:12px;color:var(--muted)}
+.upload-btn{display:none}
+.upload-note{margin-top:20px;font-size:11px;color:var(--muted)}
+.upload-error{color:var(--red);font-size:13px;margin-top:12px}
+
+/* MAIN APP */
+.app{display:none;min-height:100vh}
+.shell{display:flex;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{width:220px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;overflow-y:auto;z-index:100}
+.sb-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.sb-club{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-file{font-size:10px;color:var(--green);margin-top:3px;display:flex;align-items:center;gap:4px}
+.sb-nav{padding:10px 0;flex:1}
+.sb-sec{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:12px 20px 5px}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;color:var(--muted);font-size:13px;border-left:2px solid transparent;transition:all .15s}
+.sb-item:hover{color:var(--text);background:var(--bg3)}
+.sb-item.active{color:var(--accent);background:rgba(79,124,255,.08);border-left-color:var(--accent);font-weight:500}
+.sb-filters{padding:14px 20px;border-top:1px solid var(--border)}
+.sf-title{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+.fg{margin-bottom:10px}
+.fl{font-size:11px;color:var(--muted);margin-bottom:3px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:12px;font-family:var(--font);outline:none}
+select:focus{border-color:var(--accent)}
+.sb-reload{margin-top:10px;width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:7px;font-size:12px;cursor:pointer;font-family:var(--font);transition:all .15s}
+.sb-reload:hover{border-color:var(--accent);color:var(--accent)}
+
+/* MAIN */
+.main{margin-left:220px;flex:1;padding:28px 32px}
+
+/* PAGES */
+.page{display:none}.page.active{display:block}
+.ph{margin-bottom:22px}
+.pt{font-size:21px;font-weight:600}
+.ps{font-size:12px;color:var(--muted);margin-top:3px}
+
+/* KPI GRID */
+.kg{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-bottom:22px}
+.kc{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden;transition:border-color .2s}
+.kc:hover{border-color:var(--accent)}
+.kc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:10px 10px 0 0}
+.kc.blue::before{background:var(--accent)}.kc.green::before{background:var(--green)}
+.kc.yellow::before{background:var(--yellow)}.kc.red::before{background:var(--red)}
+.kl{font-size:10px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.kv{font-size:22px;font-weight:600;font-family:var(--mono);line-height:1}
+.ks{font-size:11px;color:var(--muted);margin-top:4px}
+.kb{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:2px 7px;border-radius:12px;margin-top:5px}
+.kb-g{background:rgba(54,217,160,.12);color:var(--green)}
+.kb-y{background:rgba(245,166,35,.12);color:var(--yellow)}
+.kb-r{background:rgba(240,82,82,.12);color:var(--red)}
+.kb-b{background:rgba(79,124,255,.12);color:var(--accent)}
+
+/* CHARTS */
+.cg{display:grid;gap:18px;margin-bottom:20px}
+.cg2{grid-template-columns:1fr 1fr}.cg21{grid-template-columns:2fr 1fr}.cg3{grid-template-columns:1fr 1fr 1fr}
+.cc{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:18px}
+.cc.full{grid-column:1/-1}
+.ct{font-size:12px;font-weight:600;margin-bottom:3px}
+.cs{font-size:11px;color:var(--muted);margin-bottom:14px}
+.cw{position:relative;height:210px}.cw.tall{height:280px}
+
+/* TABLE */
+.tc{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:18px}
+.th2{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)}
+th.r{text-align:right}
+td{padding:9px 10px;border-bottom:1px solid rgba(42,48,69,.5);font-size:12px}
+td.r{text-align:right;font-family:var(--mono);font-size:11px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+.tr-tot td{font-weight:600;color:var(--accent);border-top:1px solid var(--border)}
+.sem{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:12px}
+.sg{background:rgba(54,217,160,.12);color:var(--green)}
+.sy{background:rgba(245,166,35,.12);color:var(--yellow)}
+.sr{background:rgba(240,82,82,.12);color:var(--red)}
+.pos{color:var(--red)}.neg{color:var(--green)}.neu{color:var(--muted)}
+
+/* BE CARDS */
+.beg{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:20px}
+.bec{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px}
+.bea{font-size:14px;font-weight:600;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.bem{height:7px;background:var(--bg3);border-radius:4px;margin-bottom:8px;overflow:hidden}
+.bef{height:100%;border-radius:4px}
+.bes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.bel{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.bev{font-size:16px;font-weight:600;font-family:var(--mono)}
+
+/* PROG */
+.pl{display:flex;flex-direction:column;gap:9px}
+.pi .pr{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px}
+.pt2{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.pf{height:100%;border-radius:3px;transition:width .5s ease}
+
+/* REPORT PAGE */
+.rep-ctrl{display:flex;gap:12px;align-items:flex-end;margin-bottom:22px;flex-wrap:wrap}
+.rep-ctrl label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
+.rep-ctrl select{min-width:160px}
+.btn-pdf{background:var(--accent);color:white;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font)}
+.btn-pdf:hover{background:#3d6ee8}
+.rep-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px}
+.rep-hdr{background:#1a2744;padding:24px 28px 20px;color:white}
+.rep-hdr-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.rep-club-nm{font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.rep-title{font-size:22px;font-weight:700}
+.rep-sub{font-size:12px;opacity:.65;margin-top:2px}
+.rep-icon{font-size:44px}
+.rep-meta{display:flex;gap:28px;padding-top:16px;border-top:1px solid rgba(255,255,255,.15)}
+.rml{font-size:10px;opacity:.55;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
+.rmv{font-size:13px;font-weight:600}
+.rep-sec{padding:22px 28px;border-bottom:1px solid var(--border)}
+.rep-sec:last-child{border-bottom:none}
+.rst{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.rst::after{content:'';flex:1;height:1px;background:var(--border)}
+.rep-ftr{background:var(--bg3);padding:14px 28px;display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}
+
+/* PRINT */
+@media print{
+  body{background:white;color:#0f172a;font-size:11px}
+  .sidebar,.sb-filters,.sb-reload,.rep-ctrl,.upload-screen{display:none!important}
+  .main{margin-left:0;padding:0}
+  .app{display:block!important}
+  .page{display:none!important}
+  #page-reporte{display:block!important}
+  .rep-hdr{background:#1a2744!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rep-card{border-radius:0;box-shadow:none}
+  @page{margin:10mm;size:A4}
+}
+</style>
+</head>
+<body ondragover="event.preventDefault()" ondrop="event.preventDefault()">
+<script>
+window.addEventListener('load', function() {
+  const err = document.getElementById('upload-error');
+  if (!window.XLSX && err) err.textContent = '⚠ Error cargando librerías. Verificá tu conexión a internet y recargá la página.';
+});
+</script>
+
+<!-- ══ UPLOAD SCREEN ══ -->
+<div class="upload-screen" id="upload-screen">
+  <div class="upload-logo">📊</div>
+  <div class="upload-title">Sistema Presupuestario</div>
+  <div class="upload-sub">Cargá el archivo Excel del club para ver el dashboard,<br>los reportes y el análisis completo en tiempo real.</div>
+  <div class="upload-zone" id="drop-zone" 
+    onclick="document.getElementById('file-input').click()" 
+    ondragover="return ev(event)" 
+    ondragenter="return ev(event)"
+    ondragleave="document.getElementById('drop-zone').classList.remove('drag')"
+    ondrop="return drop(event)">
+    <div class="upload-zone-icon">📂</div>
+    <div class="upload-zone-label">Hacer clic o arrastrar el archivo aquí</div>
+    <div class="upload-zone-hint">presupuesto_club_v3.xlsx · presupuesto_club_v4.xlsx</div>
+    <input type="file" id="file-input" class="upload-btn" accept=".xlsx" onchange="loadFile(this.files[0])">
+  </div>
+  <div class="upload-error" id="upload-error"></div>
+  <div class="upload-note">🔒 El archivo se procesa localmente en tu navegador. No se sube a ningún servidor.</div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<div class="app" id="app">
+<div class="shell">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-club" id="sb-club">Club Deportivo</div>
+    <div class="sb-file"><span>●</span><span id="sb-file-name">archivo.xlsx</span></div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-sec">Vistas</div>
+    <div class="sb-item active" onclick="nav('resumen',this)"><span>◈</span><span>Resumen ejecutivo</span></div>
+    <div class="sb-item" onclick="nav('desvios',this)"><span>◎</span><span>Desvíos mensuales</span></div>
+    <div class="sb-item" onclick="nav('breakeven',this)"><span>⊙</span><span>Punto de equilibrio</span></div>
+    <div class="sb-item" onclick="nav('ranking',this)"><span>≡</span><span>Ranking actividades</span></div>
+    <div class="sb-item" onclick="nav('costos',this)"><span>◑</span><span>Análisis de costos</span></div>
+    <div class="sb-item" onclick="nav('cuotas',this)"><span>◐</span><span>Socios y cuotas</span></div>
+    <div class="sb-item" onclick="nav('reporte',this)"><span>📋</span><span>Reporte por actividad</span></div>
+  </nav>
+  <div class="sb-filters">
+    <div class="sf-title">Filtros</div>
+    <div class="fg"><div class="fl">Actividad</div>
+      <select id="f-act" onchange="render()">
+        <option value="todas">Todas</option>
+      </select>
+    </div>
+    <div class="fg"><div class="fl">Período</div>
+      <select id="f-per" onchange="render()">
+        <option value="12">Año completo</option>
+        <option value="3">Q1 (Ene–Mar)</option>
+        <option value="6">H1 (Ene–Jun)</option>
+        <option value="9">Q1-Q3 (Ene–Sep)</option>
+      </select>
+    </div>
+    <div class="fg"><div class="fl">Estado desvío</div>
+      <select id="f-est" onchange="render()">
+        <option value="todos">Todos</option>
+        <option value="ok">🟢 OK</option>
+        <option value="atencion">🟡 Atención</option>
+        <option value="alerta">🔴 Alerta</option>
+      </select>
+    </div>
+    <button class="sb-reload" onclick="resetApp()">↩ Cambiar archivo</button>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+<!-- RESUMEN -->
+<div class="page active" id="page-resumen">
+  <div class="ph"><div class="pt">Resumen ejecutivo</div><div class="ps" id="res-sub">Cargando datos...</div></div>
+  <div class="kg" id="kg-resumen"></div>
+  <div class="cg cg21">
+    <div class="cc"><div class="ct">Presupuesto vs. ejecución mensual</div><div class="cs">Egresos acumulados mes a mes</div><div class="cw"><canvas id="ch-mensual"></canvas></div></div>
+    <div class="cc"><div class="ct">Composición de egresos</div><div class="cs">Por área · Presupuesto anual</div><div class="cw"><canvas id="ch-donut"></canvas></div></div>
+  </div>
+  <div class="cg cg2">
+    <div class="cc"><div class="ct">Semáforo por área</div><div class="cs">Estado de desvío acumulado</div><div id="sem-list"></div></div>
+    <div class="cc"><div class="ct">Ingresos estimados anuales</div><div class="cs">Por actividad · Cuotas sociales + deportivas</div><div class="cw"><canvas id="ch-ing-act"></canvas></div></div>
+  </div>
+</div>
+
+<!-- DESVIOS -->
+<div class="page" id="page-desvios">
+  <div class="ph"><div class="pt">Desvíos mensuales</div><div class="ps">Comparativo presupuesto vs. real · Semáforo automático</div></div>
+  <div class="kg" id="kg-desvios"></div>
+  <div class="cc" style="margin-bottom:18px"><div class="ct">Desvío acumulado por área</div><div class="cs">$ Real − $ Presupuestado · Positivo = gasto excedido</div><div class="cw tall"><canvas id="ch-desv-bar"></canvas></div></div>
+  <div class="tc">
+    <table><thead><tr><th>Área</th><th>Tipo</th><th class="r">Pres. período</th><th class="r">Real acum.</th><th class="r">Desvío $</th><th class="r">Desvío %</th><th>Estado</th></tr></thead>
+    <tbody id="tb-desv"></tbody></table>
+  </div>
+</div>
+
+<!-- BREAK-EVEN -->
+<div class="page" id="page-breakeven">
+  <div class="ph"><div class="pt">Punto de equilibrio</div><div class="ps">Socios necesarios vs. actuales para que cada actividad sea autosustentable</div></div>
+  <div class="kg" id="kg-be"></div>
+  <div class="beg" id="be-cards"></div>
+  <div class="cc"><div class="ct">Socios necesarios vs. actuales</div><div class="cs">Azul = necesarios · Verde = actuales</div><div class="cw tall"><canvas id="ch-be-bar"></canvas></div></div>
+</div>
+
+<!-- RANKING -->
+<div class="page" id="page-ranking">
+  <div class="ph"><div class="pt">Ranking de actividades</div><div class="ps">Por resultado neto, margen y rentabilidad por m²</div></div>
+  <div class="cg cg2">
+    <div class="cc"><div class="ct">Resultado neto por actividad</div><div class="cs">Ingresos estimados − costo inst. asignado</div><div class="cw tall"><canvas id="ch-rank-bar"></canvas></div></div>
+    <div class="cc"><div class="ct">Rentabilidad por m²</div><div class="cs">Resultado neto ÷ m² efectivos asignados</div><div class="cw tall"><canvas id="ch-m2-bar"></canvas></div></div>
+  </div>
+  <div class="tc"><table><thead><tr><th>#</th><th>Actividad</th><th class="r">Socios</th><th class="r">Cuota dep.</th><th class="r">Ing. anual</th><th class="r">Costo inst.</th><th class="r">Resultado</th><th class="r">Margen</th><th class="r">M² efectivos</th><th class="r">Rent./m²</th><th>Estado</th></tr></thead>
+  <tbody id="tb-rank"></tbody></table></div>
+</div>
+
+<!-- COSTOS -->
+<div class="page" id="page-costos">
+  <div class="ph"><div class="pt">Análisis de costos</div><div class="ps">Composición por naturaleza (F/V/SF) y tipo (directo/indirecto)</div></div>
+  <div class="cg cg2">
+    <div class="cc"><div class="ct">Fijo vs. Variable vs. Semi-fijo</div><div class="cs">Por naturaleza del costo institucional</div><div class="cw"><canvas id="ch-nat"></canvas></div></div>
+    <div class="cc"><div class="ct">Evolución del ajuste salarial</div><div class="cs">Factor acumulado de inflación · Base 1.0 = Enero</div><div class="cw"><canvas id="ch-inflacion"></canvas></div></div>
+  </div>
+  <div class="tc">
+    <div class="ct" style="margin-bottom:4px">Ajuste salarial mes a mes</div>
+    <div class="cs" style="margin-bottom:12px">% aplicado y factor acumulado</div>
+    <table><thead><tr><th>Mes</th><th class="r">% Aumento</th><th class="r">Factor acum.</th><th class="r">Sueldo base proyectado</th></tr></thead>
+    <tbody id="tb-sal"></tbody></table>
+  </div>
+</div>
+
+<!-- CUOTAS -->
+<div class="page" id="page-cuotas">
+  <div class="ph"><div class="pt">Socios y cuotas</div><div class="ps">Ingresos por cuotas · Mix de membresías por actividad</div></div>
+  <div class="kg" id="kg-cuotas"></div>
+  <div class="cg cg2">
+    <div class="cc"><div class="ct">Socios por actividad (apilado)</div><div class="cs">Distribución por categoría de membresía</div><div class="cw tall"><canvas id="ch-soc-act"></canvas></div></div>
+    <div class="cc"><div class="ct">Mix de membresías</div><div class="cs">Total club · Todas las categorías</div><div class="cw"><canvas id="ch-mix"></canvas></div></div>
+  </div>
+  <div class="tc"><table><thead><tr><th>Actividad</th><th class="r">Infantil</th><th class="r">Adulto</th><th class="r">Familiar</th><th class="r">No pract.</th><th class="r">Vitalicio</th><th class="r">Total</th><th class="r">Cuota dep.</th><th class="r">Ing. mensual</th><th class="r">Ing. anual</th></tr></thead>
+  <tbody id="tb-cuotas"></tbody></table></div>
+</div>
+
+<!-- REPORTE -->
+<div class="page" id="page-reporte">
+  <div class="ph"><div class="pt">Reporte por actividad</div><div class="ps">Seleccioná la actividad y el mes de corte · Exportar con Ctrl+P</div></div>
+  <div class="rep-ctrl">
+    <div><label>Actividad</label><select id="rep-act" onchange="renderReporte()"></select></div>
+    <div><label>Mes de corte</label>
+      <select id="rep-mes" onchange="renderReporte()">
+        <option value="1">Enero</option><option value="2">Febrero</option><option value="3" selected>Marzo</option>
+        <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+        <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+        <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+      </select>
+    </div>
+    <button class="btn-pdf" onclick="window.print()">⬇ Exportar PDF</button>
+  </div>
+  <div id="reporte-content"></div>
+</div>
+
+</main>
+</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// GLOBAL STATE
+// ══════════════════════════════════════════════════════
+let DATA = null;
+let CHARTS = [];
+const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+const CATS_SOC = ["Infantil/Sub-12","Mayor/Adulto","Familiar","No practicante","Vitalicio"];
+const PAL = ['#4f7cff','#36d9a0','#f5a623','#f05252','#a78bfa','#34d399','#fb923c','#60a5fa','#f472b6','#facc15','#4ade80','#38bdf8'];
+
+// ══════════════════════════════════════════════════════
+// FILE LOADING
+// ══════════════════════════════════════════════════════
+function ev(e){
+  e.preventDefault(); e.stopPropagation();
+  document.getElementById('drop-zone').classList.add('drag');
+  return false;
+}
+function drop(e){
+  e.preventDefault(); e.stopPropagation();
+  document.getElementById('drop-zone').classList.remove('drag');
+  const files = e.dataTransfer ? e.dataTransfer.files : null;
+  if (files && files.length > 0) loadFile(files[0]);
+  return false;
+}
+
+function loadFile(file) {
+  const errEl = document.getElementById('upload-error');
+  if (!file) { errEl.textContent = '⚠ No se recibió ningún archivo.'; return; }
+  if (!file.name.toLowerCase().endsWith('.xlsx')) {
+    errEl.textContent = '⚠ El archivo debe ser .xlsx (Excel). Archivo recibido: ' + file.name;
+    return;
+  }
+  errEl.textContent = '';
+  const lbl = document.getElementById('drop-zone').querySelector('.upload-zone-label'); if(lbl) lbl.textContent = 'Cargando ' + file.name + '...';
+  const reader = new FileReader();
+  reader.onerror = () => { errEl.textContent = '⚠ Error al leer el archivo. Intentá de nuevo.'; };
+  reader.onload = e => {
+    try {
+      if (!window.XLSX) { 
+    errEl.textContent = '⚠ Cargando librerías... intentá de nuevo en unos segundos.';
+    setTimeout(() => { errEl.textContent = ''; }, 3000);
+    return; 
+  }
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+      if (!wb.SheetNames || wb.SheetNames.length === 0) { errEl.textContent = '⚠ El archivo no tiene hojas válidas.'; return; }
+      DATA = parseWorkbook(wb);
+      DATA.fileName = file.name;
+      initApp();
+    } catch(err) {
+      errEl.textContent = '⚠ Error: ' + err.message;
+      console.error('loadFile error:', err);
+      const lbl2 = document.getElementById('drop-zone').querySelector('.upload-zone-label'); if(lbl2) lbl2.textContent = 'Hacer clic o arrastrar el archivo aquí';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════════════════
+// PARSE WORKBOOK — extracts all needed data
+// ══════════════════════════════════════════════════════
+function parseWorkbook(wb) {
+  const d = {};
+  const sheetNames = wb.SheetNames;
+
+  // ── Premisas ──
+  const wsPrem = wb.Sheets['📋 Premisas'];
+  if (!wsPrem) throw new Error('No se encontró la hoja "📋 Premisas"');
+  const prem = XLSX.utils.sheet_to_json(wsPrem, {header:1, defval:null});
+
+  // Club name (row 4, col C = index 2)
+  d.clubName = prem[4]?.[2] || 'Club Deportivo';
+  d.ejercicio = prem[5]?.[2] || 2025;
+
+  // Ajuste salarial rows 14-25 (0-indexed 13-24), cols B=1,C=2,D=3,E=4
+  d.ajuste = [];
+  for (let i=13; i<=24; i++) {
+    const r = prem[i];
+    if (r && r[1]) {
+      d.ajuste.push({mes:r[1], pct:r[2]||0, factor:r[3]||1, sueldo_base:r[4]||100000});
+    }
+  }
+
+  // Cuotas sociales rows 29-33 (0-indexed 28-32), cols B=1,C=2
+  d.cuotas_soc = {};
+  for (let i=28; i<=32; i++) {
+    const r = prem[i];
+    if (r && r[1]) d.cuotas_soc[r[1]] = r[2]||0;
+  }
+
+  // Actividades rows 38-47 (0-indexed 37-46)
+  // cols: B=1(nombre), C=2(cuota_dep), D=3(inf), E=4(adu), F=5(fam), G=6(nop), H=7(vit), I=8(total)
+  d.actividades = [];
+  for (let i=37; i<=46; i++) {
+    const r = prem[i];
+    if (r && r[1] && r[1] !== 'TOTAL') {
+      d.actividades.push({
+        nombre: r[1],
+        cuota_dep: r[2]||0,
+        socios: [r[3]||0, r[4]||0, r[5]||0, r[6]||0, r[7]||0],
+        total_socios: r[8]||0,
+      });
+    }
+  }
+
+  // Umbrales semáforo rows 69-72 (0-indexed 68-71)
+  d.umbral_va = prem[68]?.[2] ?? 0.05;
+  d.umbral_ar = prem[69]?.[2] ?? 0.10;
+
+  // M2 data rows 56-65 (0-indexed 55-64)
+  // cols: B=1, C=2(espacio), D=3(m2), E=4(hs_uso), F=5(hs_tot), G=6(factor), H=7(m2ef), I=8(costo_inst), J=9(ing_anual), K=10(rentab)
+  d.costo_inst_anual = prem[52]?.[8] || 15000000;
+  d.m2_total = prem[51]?.[4] || 3000;
+  d.m2_data = {};
+  for (let i=55; i<=64; i++) {
+    const r = prem[i];
+    if (r && r[1] && r[1] !== 'TOTALES') {
+      d.m2_data[r[1]] = {
+        espacio: r[2], m2: r[3]||0, hs_uso: r[4]||0, hs_tot: r[5]||84,
+        factor: r[6]||0, m2ef: r[7]||0, costo_inst: r[8]||0,
+        ing_anual: r[9]||0, rentab_m2: r[10]||0,
+      };
+    }
+  }
+
+  // ── Seguimiento Mensual ──
+  const wsSeg = wb.Sheets['📊 Seguimiento Mensual'];
+  if (!wsSeg) { d.seguimiento = []; return d; }
+  const seg = XLSX.utils.sheet_to_json(wsSeg, {header:1, defval:0});
+  // Row 4 (idx 3): labels. Row 5+ (idx 4+): data areas
+  // Pres cols 6-17 (idx 5-16), Real cols 19-30 (idx 18-29)
+  d.seguimiento = [];
+  for (let i=4; i<seg.length; i++) {
+    const r = seg[i];
+    if (!r[1] || r[1]==='TOTAL CONSOLIDADO') continue;
+    if (typeof r[1] !== 'string') continue;
+    const pres = MESES.map((_,k) => parseFloat(r[5+k])||0);
+    const real = MESES.map((_,k) => parseFloat(r[18+k])||0);
+    d.seguimiento.push({area: r[1], tipo: r[2], pres, real});
+  }
+
+  return d;
+}
+
+// ══════════════════════════════════════════════════════
+// INIT APP
+// ══════════════════════════════════════════════════════
+function initApp() {
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('sb-club').textContent = DATA.clubName;
+  document.getElementById('sb-file-name').textContent = DATA.fileName;
+
+  // Populate activity selects
+  const actSel = document.getElementById('f-act');
+  const repSel = document.getElementById('rep-act');
+  actSel.innerHTML = '<option value="todas">Todas</option>';
+  repSel.innerHTML = '';
+  DATA.actividades.forEach((a,i) => {
+    actSel.innerHTML += `<option value="${i}">${a.nombre}</option>`;
+    repSel.innerHTML += `<option value="${i}">${a.nombre}</option>`;
+  });
+
+  render();
+  renderReporte();
+}
+
+function resetApp() {
+  DATA = null; destroyCharts();
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════
+const fmt = n => n==null?'$0':'$'+Math.round(Math.abs(n)).toLocaleString('es-AR');
+const fmtS = n => (n<0?'-':'')+fmt(n);
+const fmtP = n => (n*100).toFixed(1)+'%';
+const v = n => n||0;
+
+function ingMensual(act) {
+  const q = DATA.cuotas_soc;
+  return act.socios[0]*(v(q["Infantil/Sub-12"])+act.cuota_dep)
+       + act.socios[1]*(v(q["Mayor/Adulto"])+act.cuota_dep)
+       + act.socios[2]*(v(q["Familiar"])+act.cuota_dep)
+       + act.socios[3]*v(q["No practicante"])
+       + act.socios[4]*0;
+}
+
+function semCls(desv) {
+  if (desv <= DATA.umbral_va) return ['sg','🟢 OK'];
+  if (desv <= DATA.umbral_ar) return ['sy','🟡 Atención'];
+  return ['sr','🔴 Alerta'];
+}
+
+function semBadge(desv) {
+  const [c,l] = semCls(desv);
+  return `<span class="sem ${c}">${l}</span>`;
+}
+
+function getPeriod() { return parseInt(document.getElementById('f-per').value); }
+
+function slicePeriod(arr) { return arr.slice(0, getPeriod()); }
+
+function destroyCharts() { CHARTS.forEach(c=>{try{c.destroy()}catch(e){}}); CHARTS=[]; }
+
+Chart.defaults.color='#7880a0'; Chart.defaults.borderColor='#2a3045';
+Chart.defaults.font.family="'DM Sans',sans-serif"; Chart.defaults.font.size=11;
+
+function mkChart(id, type, data, opts={}) {
+  const el = document.getElementById(id); if(!el) return;
+  const c = new Chart(el, {type, data, options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}, tooltip:{backgroundColor:'#1e2334',borderColor:'#2a3045',borderWidth:1,titleColor:'#e8eaf0',bodyColor:'#7880a0',padding:10}},
+    scales: ['bar','line'].includes(type)?{x:{grid:{color:'#2a3045'},ticks:{color:'#7880a0'}},y:{grid:{color:'#2a3045'},ticks:{color:'#7880a0',callback:v=>v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'k':'$'+Math.round(v)}}}:{},
+    ...opts
+  }});
+  CHARTS.push(c); return c;
+}
+
+function kpiCard(label,value,sub,badge,color='blue') {
+  return `<div class="kc ${color}"><div class="kl">${label}</div><div class="kv">${value}</div><div class="ks">${sub}</div>${badge?`<span class="kb ${badge[0]}">${badge[1]}</span>`:''}</div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// MAIN RENDER DISPATCHER
+// ══════════════════════════════════════════════════════
+function nav(page, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  el.classList.add('active');
+  render();
+}
+
+function render() {
+  if (!DATA) return;
+  const active = document.querySelector('.page.active')?.id?.replace('page-','');
+  destroyCharts();
+  const renders = {resumen, desvios, breakeven, ranking, costos, cuotas};
+  if (renders[active]) renders[active]();
+}
+
+// ══════════════════════════════════════════════════════
+// RESUMEN
+// ══════════════════════════════════════════════════════
+function resumen() {
+  const mes = getPeriod();
+  const totalPres = DATA.seguimiento.reduce((s,a)=>s+slicePeriod(a.pres).reduce((x,y)=>x+y,0),0);
+  const totalReal = DATA.seguimiento.reduce((s,a)=>s+slicePeriod(a.real).reduce((x,y)=>x+y,0),0);
+  const totalIng  = DATA.actividades.reduce((s,a)=>s+ingMensual(a)*12,0);
+  const res       = totalIng - totalPres;
+  const ejec      = totalPres>0 ? totalReal/totalPres : 0;
+  const desv      = totalPres>0 ? (totalReal-totalPres)/totalPres : 0;
+  const [dc,dl]   = semCls(desv);
+  let alertas=0;
+  DATA.seguimiento.forEach(a=>{const p=slicePeriod(a.pres).reduce((s,v)=>s+v,0),r=slicePeriod(a.real).reduce((s,v)=>s+v,0);if(p>0&&(r-p)/p>DATA.umbral_ar)alertas++;});
+
+  document.getElementById('res-sub').textContent = `Ejercicio ${DATA.ejercicio} · Acumulado ${MESES.slice(0,mes).join('–')} · ${DATA.actividades.length} actividades`;
+  document.getElementById('kg-resumen').innerHTML =
+    kpiCard('Presupuesto anual egresos',fmt(totalPres),'Total presupuestado','','blue') +
+    kpiCard('Ingresos anuales estimados',fmt(totalIng),'Por cuotas sociales + deportivas','','green') +
+    kpiCard('Resultado neto presup.',fmtS(res),res>=0?'Superávit':'Déficit',[res>=0?'kb-g':'kb-r',res>=0?'▲ Positivo':'▼ Negativo'],res>=0?'green':'red') +
+    kpiCard('% Ejecución presup.',fmtP(ejec),`Real: ${fmt(totalReal)}`,[ejec<=1.05?'kb-g':ejec<=1.10?'kb-y':'kb-r',ejec<=1.05?'En presupuesto':ejec<=1.10?'Leve exceso':'Exceso'],'yellow') +
+    kpiCard('Total socios activos',DATA.actividades.reduce((s,a)=>s+a.total_socios,0).toString(),'Todas las actividades','','blue') +
+    kpiCard('Áreas en alerta',alertas,`Desvío > ${fmtP(DATA.umbral_ar)}`,[alertas===0?'kb-g':alertas<=2?'kb-y':'kb-r',alertas===0?'Sin alertas':'Requieren atención'],alertas===0?'green':alertas<=2?'yellow':'red');
+
+  // Chart: mensual pres vs real
+  const presMes=Array(mes).fill(0),realMes=Array(mes).fill(0);
+  DATA.seguimiento.forEach(a=>{a.pres.slice(0,mes).forEach((v,i)=>presMes[i]+=v);a.real.slice(0,mes).forEach((v,i)=>realMes[i]+=v);});
+  mkChart('ch-mensual','bar',{labels:MESES.slice(0,mes),datasets:[
+    {label:'Presupuesto',data:presMes,backgroundColor:'rgba(79,124,255,.3)',borderColor:'#4f7cff',borderWidth:1.5,borderRadius:4},
+    {label:'Real',data:realMes,backgroundColor:'rgba(54,217,160,.3)',borderColor:'#36d9a0',borderWidth:1.5,borderRadius:4},
+  ]},{plugins:{legend:{display:true,labels:{color:'#7880a0',boxWidth:10,padding:14}}}});
+
+  // Chart: donut áreas
+  const presAreas=DATA.seguimiento.map(a=>a.pres.reduce((s,v)=>s+v,0));
+  mkChart('ch-donut','doughnut',{labels:DATA.seguimiento.map(a=>a.area.replace(/^[^ ]+ /,'')),datasets:[{data:presAreas,backgroundColor:PAL,borderWidth:0,hoverOffset:6}]},
+    {plugins:{legend:{display:true,position:'right',labels:{color:'#7880a0',boxWidth:8,padding:8,font:{size:10}}}},cutout:'62%'});
+
+  // Semáforo list
+  let sl='';
+  DATA.seguimiento.forEach(a=>{
+    const p=slicePeriod(a.pres).reduce((s,v)=>s+v,0),r=slicePeriod(a.real).reduce((s,v)=>s+v,0);
+    const dv=p>0?(r-p)/p:0;
+    sl+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #2a3045">
+      <span style="font-size:12px">${a.area}</span>${semBadge(dv)}</div>`;
+  });
+  document.getElementById('sem-list').innerHTML=sl;
+
+  // Chart: ingresos por actividad
+  const ingAct=DATA.actividades.map(a=>ingMensual(a)*12);
+  mkChart('ch-ing-act','bar',{labels:DATA.actividades.map(a=>a.nombre),datasets:[{label:'Ingreso anual',data:ingAct,backgroundColor:PAL,borderRadius:4,borderWidth:0}]},{indexAxis:'y'});
+}
+
+// ══════════════════════════════════════════════════════
+// DESVÍOS
+// ══════════════════════════════════════════════════════
+function desvios() {
+  const tbody=document.getElementById('tb-desv'); tbody.innerHTML='';
+  let tP=0,tR=0,rojos=0,verdes=0,mayorD=0,mayorA='';
+  const labels=[],dvals=[],colors=[];
+
+  DATA.seguimiento.forEach(a=>{
+    const p=slicePeriod(a.pres).reduce((s,v)=>s+v,0);
+    const r=slicePeriod(a.real).reduce((s,v)=>s+v,0);
+    const d=r-p, dp=p>0?d/p:0;
+    tP+=p; tR+=r;
+    if(Math.abs(d)>Math.abs(mayorD)){mayorD=d;mayorA=a.area;}
+    const [sc,sl]=semCls(dp);
+    if(sc==='sg')verdes++; if(sc==='sr')rojos++;
+    labels.push(a.area.replace(/^[^ ]+ /,''));
+    dvals.push(d);
+    colors.push(sc==='sg'?'rgba(54,217,160,.6)':sc==='sy'?'rgba(245,166,35,.6)':'rgba(240,82,82,.6)');
+    const filtEst=document.getElementById('f-est').value;
+    const stMap={'ok':'sg','atencion':'sy','alerta':'sr'};
+    if(filtEst!=='todos'&&stMap[filtEst]!==sc)return;
+    tbody.innerHTML+=`<tr>
+      <td>${a.area}</td><td style="color:var(--muted);font-size:11px">${a.tipo}</td>
+      <td class="r">${fmt(p)}</td><td class="r">${fmt(r)}</td>
+      <td class="r ${d>0?'pos':d<0?'neg':'neu'}">${d>0?'+':''}${fmt(d)}</td>
+      <td class="r ${d>0?'pos':d<0?'neg':'neu'}">${d>0?'+':''}${fmtP(dp)}</td>
+      <td>${semBadge(dp)}</td></tr>`;
+  });
+  const dT=tR-tP,dpT=tP>0?dT/tP:0;
+  tbody.innerHTML+=`<tr class="tr-tot"><td>TOTAL</td><td></td><td class="r">${fmt(tP)}</td><td class="r">${fmt(tR)}</td>
+    <td class="r ${dT>0?'pos':'neg'}">${dT>0?'+':''}${fmt(dT)}</td>
+    <td class="r ${dT>0?'pos':'neg'}">${fmtP(dpT)}</td><td>${semBadge(dpT)}</td></tr>`;
+
+  document.getElementById('kg-desvios').innerHTML =
+    kpiCard('Desvío acumulado YTD',fmtS(tR-tP),'Real − Presupuesto',[dT>0?'kb-r':'kb-g',dT>0?'▲ Exceso':'▼ Ahorro'],dT>0?'red':'green') +
+    kpiCard('Mayor desvío',fmt(mayorD),mayorA,'','yellow') +
+    kpiCard('Áreas en rojo',rojos,'Desvío > '+fmtP(DATA.umbral_ar),[rojos===0?'kb-g':'kb-r',rojos===0?'Sin alertas':'Requieren acción'],rojos===0?'green':'red') +
+    kpiCard('Áreas en verde',verdes,'Dentro del presupuesto',['kb-g','✓ Controlado'],'green');
+
+  mkChart('ch-desv-bar','bar',{labels,datasets:[{label:'Desvío $',data:dvals,backgroundColor:colors,borderRadius:4,borderWidth:0}]});
+}
+
+// ══════════════════════════════════════════════════════
+// BREAK-EVEN
+// ══════════════════════════════════════════════════════
+function breakeven() {
+  let auto=0,mod=0,crit=0,extra=0;
+  const bcards=document.getElementById('be-cards'); bcards.innerHTML='';
+  const labels=[],nec=[],act_s=[];
+
+  DATA.actividades.forEach(a=>{
+    const m2d=DATA.m2_data[a.nombre]||{};
+    const ci=m2d.costo_inst||0;
+    const im=ingMensual(a);
+    const ts=a.total_socios;
+    const cp=ts>0?im/ts:0;
+    const sn=cp>0?Math.ceil(ci/(cp*12)):999;
+    const cob=sn>0?ts/sn:0;
+    const se=Math.max(0,sn-ts);
+    const def=im*12-ci;
+    extra+=se;
+    labels.push(a.nombre); nec.push(sn); act_s.push(ts);
+    const col=cob>=1?'var(--green)':cob>=0.7?'var(--yellow)':'var(--red)';
+    const cls=cob>=1?'sg':cob>=0.7?'sy':'sr';
+    const lbl=cob>=1?'🟢 Autosustentable':cob>=0.7?'🟡 Subsidiada':'🔴 Crítica';
+    if(cob>=1)auto++; else if(cob>=0.7)mod++; else crit++;
+    bcards.innerHTML+=`<div class="bec">
+      <div class="bea">${a.nombre}<span class="sem ${cls}" style="font-size:11px">${lbl}</span></div>
+      <div class="bem"><div class="bef" style="width:${Math.min(cob*100,100).toFixed(0)}%;background:${col}"></div></div>
+      <div style="font-size:10px;color:var(--muted);text-align:right;margin-bottom:8px">${(cob*100).toFixed(1)}% cobertura</div>
+      <div class="bes">
+        <div><div class="bel">Socios nec.</div><div class="bev" style="color:var(--accent)">${sn}</div></div>
+        <div><div class="bel">Socios act.</div><div class="bev" style="color:${col}">${ts}</div></div>
+        <div><div class="bel">Déficit/Superávit</div><div class="bev" style="color:${def>=0?'var(--green)':'var(--red)';font-size:13px">${fmtS(def)}</div></div>
+        <div><div class="bel">Cuota prom.</div><div class="bev" style="font-size:13px">${fmt(cp)}</div></div>
+      </div></div>`;
+  });
+
+  document.getElementById('kg-be').innerHTML =
+    kpiCard('Autosustentables',auto,'Cobertura ≥ 100%',['kb-g','✓'],'green') +
+    kpiCard('Subsidiadas (mod.)',mod,'Cobertura 70–99%',['kb-y','~'],'yellow') +
+    kpiCard('Críticas',crit,'Cobertura < 70%',[crit>0?'kb-r':'kb-g',crit>0?'⚠':'✓'],crit>0?'red':'green') +
+    kpiCard('Socios extra totales',extra,'Para equilibrar todas las actividades',['kb-b','meta'],'blue');
+
+  mkChart('ch-be-bar','bar',{labels,datasets:[
+    {label:'Socios necesarios',data:nec,backgroundColor:'rgba(79,124,255,.4)',borderColor:'#4f7cff',borderWidth:1.5,borderRadius:4},
+    {label:'Socios actuales', data:act_s,backgroundColor:'rgba(54,217,160,.4)',borderColor:'#36d9a0',borderWidth:1.5,borderRadius:4},
+  ]},{plugins:{legend:{display:true,labels:{color:'#7880a0',boxWidth:10,padding:12}}}});
+}
+
+// ══════════════════════════════════════════════════════
+// RANKING
+// ══════════════════════════════════════════════════════
+function ranking() {
+  const rows=DATA.actividades.map(a=>{
+    const m2d=DATA.m2_data[a.nombre]||{};
+    const ing=ingMensual(a)*12, ci=m2d.costo_inst||0, neto=ing-ci;
+    const margen=ci>0?neto/ci:0, m2ef=m2d.m2ef||0, rm2=m2ef>0?neto/m2ef:0;
+    return {nombre:a.nombre,ts:a.total_socios,cd:a.cuota_dep,ing,ci,neto,margen,m2ef,rm2};
+  }).sort((a,b)=>b.neto-a.neto);
+
+  const tbody=document.getElementById('tb-rank'); tbody.innerHTML='';
+  rows.forEach((r,i)=>{
+    const est=r.neto>0?'<span class="sem sg">🟢 Rentable</span>':r.neto>-r.ing*.3?'<span class="sem sy">🟡 Aceptable</span>':'<span class="sem sr">🔴 Deficitaria</span>';
+    tbody.innerHTML+=`<tr>
+      <td style="color:var(--muted);font-family:var(--mono)">${i+1}</td>
+      <td style="font-weight:500">${r.nombre}</td>
+      <td class="r">${r.ts}</td><td class="r">${fmt(r.cd)}/mes</td>
+      <td class="r">${fmt(r.ing)}</td><td class="r">${fmt(r.ci)}</td>
+      <td class="r ${r.neto>=0?'neg':'pos'}" style="font-weight:600">${fmtS(r.neto)}</td>
+      <td class="r ${r.margen>=0?'neg':'pos'}">${fmtP(r.margen)}</td>
+      <td class="r">${r.m2ef.toFixed(0)} m²</td>
+      <td class="r ${r.rm2>=0?'neg':'pos'}">${fmtS(r.rm2)}</td>
+      <td>${est}</td></tr>`;
+  });
+
+  mkChart('ch-rank-bar','bar',{labels:rows.map(r=>r.nombre),datasets:[{label:'Resultado neto',data:rows.map(r=>r.neto),backgroundColor:rows.map(r=>r.neto>=0?'rgba(54,217,160,.5)':'rgba(240,82,82,.5)'),borderColor:rows.map(r=>r.neto>=0?'#36d9a0':'#f05252'),borderWidth:1.5,borderRadius:4}]},{indexAxis:'y'});
+  mkChart('ch-m2-bar','bar',{labels:rows.map(r=>r.nombre),datasets:[{label:'Rent./m²',data:rows.map(r=>r.rm2),backgroundColor:rows.map(r=>r.rm2>=0?'rgba(79,124,255,.5)':'rgba(240,82,82,.5)'),borderColor:rows.map(r=>r.rm2>=0?'#4f7cff':'#f05252'),borderWidth:1.5,borderRadius:4}]},{indexAxis:'y'});
+}
+
+// ══════════════════════════════════════════════════════
+// COSTOS
+// ══════════════════════════════════════════════════════
+function costos() {
+  // Ajuste salarial table
+  const tbody=document.getElementById('tb-sal'); tbody.innerHTML='';
+  DATA.ajuste.forEach((a,i)=>{
+    tbody.innerHTML+=`<tr>
+      <td style="font-weight:500">${a.mes}</td>
+      <td class="r ${a.pct>0?'neg':'neu'}">${a.pct>0?'+'+fmtP(a.pct):'-'}</td>
+      <td class="r" style="font-family:var(--mono)">${a.factor.toFixed(3)}×</td>
+      <td class="r">${fmt(a.sueldo_base)}</td></tr>`;
+  });
+
+  // Naturaleza (simplified from M2 data — fijo/variable/semifijo estimate)
+  const fijo=DATA.costo_inst_anual*0.55, variable=DATA.costo_inst_anual*0.30, semifijo=DATA.costo_inst_anual*0.15;
+  mkChart('ch-nat','doughnut',{labels:['Fijo','Variable','Semi-fijo'],datasets:[{data:[fijo,variable,semifijo],backgroundColor:['rgba(79,124,255,.8)','rgba(54,217,160,.8)','rgba(245,166,35,.8)'],borderWidth:0,hoverOffset:6}]},
+    {cutout:'60%',plugins:{legend:{display:true,position:'bottom',labels:{color:'#7880a0',boxWidth:10,padding:12}}}});
+
+  mkChart('ch-inflacion','line',{labels:MESES,datasets:[{label:'Factor acumulado',data:DATA.ajuste.map(a=>a.factor),borderColor:'#f5a623',backgroundColor:'rgba(245,166,35,.1)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#f5a623',fill:true,tension:.3}]},
+    {scales:{y:{ticks:{callback:v=>v.toFixed(2)+'×'}}}});
+}
+
+// ══════════════════════════════════════════════════════
+// CUOTAS
+// ══════════════════════════════════════════════════════
+function cuotas() {
+  const tbody=document.getElementById('tb-cuotas'); tbody.innerHTML='';
+  let totSocios=0,totMensual=0;
+  DATA.actividades.forEach(a=>{
+    const im=ingMensual(a);
+    totSocios+=a.total_socios; totMensual+=im;
+    tbody.innerHTML+=`<tr>
+      <td style="font-weight:500">${a.nombre}</td>
+      ${a.socios.map(s=>`<td class="r">${s}</td>`).join('')}
+      <td class="r" style="font-weight:600">${a.total_socios}</td>
+      <td class="r">${fmt(a.cuota_dep)}/mes</td>
+      <td class="r" style="color:var(--green)">${fmt(im)}</td>
+      <td class="r" style="color:var(--green)">${fmt(im*12)}</td></tr>`;
+  });
+  tbody.innerHTML+=`<tr class="tr-tot"><td>TOTAL</td><td colspan="5"></td><td class="r">${totSocios}</td><td></td><td class="r">${fmt(totMensual)}</td><td class="r">${fmt(totMensual*12)}</td></tr>`;
+
+  document.getElementById('kg-cuotas').innerHTML =
+    kpiCard('Total socios',totSocios,'Todas las actividades','','blue') +
+    kpiCard('Ingreso mensual',fmt(totMensual),'Por cuotas todas actividades','','green') +
+    kpiCard('Ingreso anual estimado',fmt(totMensual*12),'Proyectado a 12 meses','','green') +
+    kpiCard('Cuota promedio ponderada',fmt(totSocios>0?totMensual/totSocios:0),'Por socio practicante / mes','','blue');
+
+  mkChart('ch-soc-act','bar',{labels:DATA.actividades.map(a=>a.nombre),datasets:[
+    {label:'Infantil',data:DATA.actividades.map(a=>a.socios[0]),backgroundColor:'rgba(79,124,255,.8)',borderRadius:2,borderWidth:0},
+    {label:'Adulto',data:DATA.actividades.map(a=>a.socios[1]),backgroundColor:'rgba(54,217,160,.8)',borderRadius:2,borderWidth:0},
+    {label:'Familiar',data:DATA.actividades.map(a=>a.socios[2]),backgroundColor:'rgba(245,166,35,.8)',borderRadius:2,borderWidth:0},
+    {label:'No pract.',data:DATA.actividades.map(a=>a.socios[3]),backgroundColor:'rgba(240,82,82,.7)',borderRadius:2,borderWidth:0},
+    {label:'Vitalicio',data:DATA.actividades.map(a=>a.socios[4]),backgroundColor:'rgba(167,139,250,.8)',borderRadius:2,borderWidth:0},
+  ]},{plugins:{legend:{display:true,labels:{color:'#7880a0',boxWidth:8,padding:10}}},scales:{x:{stacked:true},y:{stacked:true}}});
+
+  const totCat=[0,0,0,0,0];
+  DATA.actividades.forEach(a=>a.socios.forEach((v,i)=>totCat[i]+=v));
+  mkChart('ch-mix','doughnut',{labels:CATS_SOC,datasets:[{data:totCat,backgroundColor:['rgba(79,124,255,.8)','rgba(54,217,160,.8)','rgba(245,166,35,.8)','rgba(240,82,82,.7)','rgba(167,139,250,.8)'],borderWidth:0,hoverOffset:6}]},
+    {cutout:'55%',plugins:{legend:{display:true,position:'bottom',labels:{color:'#7880a0',boxWidth:8,padding:10,font:{size:10}}}}});
+}
+
+// ══════════════════════════════════════════════════════
+// REPORTE POR ACTIVIDAD
+// ══════════════════════════════════════════════════════
+function renderReporte() {
+  if (!DATA) return;
+  const idx=parseInt(document.getElementById('rep-act').value);
+  const mes=parseInt(document.getElementById('rep-mes').value);
+  const a=DATA.actividades[idx];
+  if(!a){return;}
+  const m2d=DATA.m2_data[a.nombre]||{};
+  const seg=DATA.seguimiento.find(s=>s.area.includes(a.nombre));
+
+  const im=ingMensual(a);
+  const ts=a.total_socios;
+  const cp=ts>0?im/ts:0;
+  const ci=m2d.costo_inst||0;
+  const sn=cp>0?Math.ceil(ci/(cp*12)):999;
+  const cob=sn>0?ts/sn:0;
+  const m2ef=m2d.m2ef||0, rm2=m2ef>0?(im*12-ci)/m2ef:0;
+  const cob_col=cob>=1?'#36d9a0':cob>=0.7?'#f5a623':'#f05252';
+  const cob_lbl=cob>=1?'🟢 Autosustentable':cob>=0.7?'🟡 Subsidiada':'🔴 Crítica';
+
+  let pres_egr_ytd=0, real_egr_ytd=0, pres_ing_ytd=0, real_ing_ytd=0;
+  if(seg){
+    pres_egr_ytd=seg.pres.slice(0,mes).reduce((s,v)=>s+v,0);
+    real_egr_ytd=seg.real.slice(0,mes).reduce((s,v)=>s+v,0);
+  }
+  pres_ing_ytd=im*mes; real_ing_ytd=im*mes*0.98; // estimated
+  const res_neto=real_ing_ytd-real_egr_ytd;
+  const desv_egr=pres_egr_ytd>0?(real_egr_ytd-pres_egr_ytd)/pres_egr_ytd:0;
+  const ejec=pres_egr_ytd>0?real_egr_ytd/pres_egr_ytd:0;
+  const [sc_egr,sl_egr]=semCls(desv_egr);
+
+  const meses_ytd=MESES.slice(0,mes);
+  const rows_mes=meses_ytd.map((m,i)=>{
+    const pe=seg?seg.pres[i]:0, re=seg?seg.real[i]:0;
+    const de=pe>0?(re-pe)/pe:0, res=im-re;
+    const [sc]=semCls(de);
+    return `<tr>
+      <td><strong>${m}</strong></td>
+      <td class="r">${fmt(pe)}</td><td class="r">${fmt(re)}</td>
+      <td class="r ${de>0?'pos':'neg'}">${de>0?'+':''}${fmtP(de)}</td>
+      <td class="r">${fmt(im)}</td><td class="r">${fmt(im*0.98)}</td>
+      <td class="r ${res>=0?'neg':'pos'}">${fmtS(res)}</td>
+      <td><span class="sem ${sc}">${sc==='sg'?'🟢 OK':sc==='sy'?'🟡 Atención':'🔴 Alerta'}</span></td></tr>`;
+  }).join('');
+
+  document.getElementById('reporte-content').innerHTML = `
+  <div class="rep-card">
+    <div class="rep-hdr">
+      <div class="rep-hdr-top">
+        <div>
+          <div class="rep-club-nm">${DATA.clubName} · Ejercicio ${DATA.ejercicio}</div>
+          <div class="rep-title">Reporte de Gestión — ${a.nombre}</div>
+          <div class="rep-sub">Período: Enero – ${MESES[mes-1]} ${DATA.ejercicio} · Acumulado ${mes} mes${mes>1?'es':''}</div>
+        </div>
+        <div class="rep-icon">${['🏀','⚽','🏐','🥋','🏊','🎾','🏸','🤼','🏃','🎯'][idx]||'🏅'}</div>
+      </div>
+      <div class="rep-meta">
+        <div><div class="rml">Socios activos</div><div class="rmv">${ts}</div></div>
+        <div><div class="rml">Cuota dep. mensual</div><div class="rmv">${fmt(a.cuota_dep)}</div></div>
+        <div><div class="rml">Ingreso mensual</div><div class="rmv">${fmt(im)}</div></div>
+        <div><div class="rml">Estado</div><div class="rmv"><span class="sem ${sc_egr}" style="font-size:12px">${sl_egr}</span></div></div>
+        <div><div class="rml">Generado</div><div class="rmv">${new Date().toLocaleDateString('es-AR')}</div></div>
+      </div>
+    </div>
+
+    <div class="rep-sec">
+      <div class="rst">Indicadores clave</div>
+      <div class="kg">
+        ${kpiCard('Egresos ejecutados',fmt(real_egr_ytd),`Presup: ${fmt(pres_egr_ytd)}`,[sc_egr==='sg'?'kb-g':sc_egr==='sy'?'kb-y':'kb-r',sl_egr+' '+fmtP(Math.abs(desv_egr))],sc_egr==='sg'?'green':sc_egr==='sy'?'yellow':'red')}
+        ${kpiCard('Ingresos estimados',fmt(real_ing_ytd),`Cuotas ×${mes} meses`,'','green')}
+        ${kpiCard('Resultado neto',fmtS(res_neto),res_neto>=0?'Superávit del período':'Déficit del período',[res_neto>=0?'kb-g':'kb-r',res_neto>=0?'▲ Positivo':'▼ Negativo'],res_neto>=0?'green':'red')}
+        ${kpiCard('% Ejecución presup.',fmtP(ejec),`${fmt(real_egr_ytd)} de ${fmt(pres_egr_ytd)}`,[ejec<=1.05?'kb-g':ejec<=1.10?'kb-y':'kb-r',ejec<=1.05?'En presupuesto':'Excedido'],'yellow')}
+        ${kpiCard('Cobertura break-even',fmtP(cob),`${ts} actuales / ${sn} necesarios`,[cob>=1?'kb-g':cob>=0.7?'kb-y':'kb-r',cob_lbl],cob>=1?'green':cob>=0.7?'yellow':'red')}
+        ${kpiCard('Rent. por m²',fmtS(rm2),`${m2ef.toFixed(0)} m² efectivos asignados`,'','blue')}
+      </div>
+    </div>
+
+    <div class="rep-sec">
+      <div class="rst">Comparativo mensual</div>
+      <table><thead><tr><th>Mes</th><th class="r">Egreso pres.</th><th class="r">Egreso real</th><th class="r">Desvío egr.</th><th class="r">Ing. estimado</th><th class="r">Ing. real est.</th><th class="r">Resultado</th><th>Estado</th></tr></thead>
+      <tbody>${rows_mes}</tbody>
+      <tfoot><tr class="tr-tot"><td>ACUM.</td><td class="r">${fmt(pres_egr_ytd)}</td><td class="r">${fmt(real_egr_ytd)}</td>
+        <td class="r ${desv_egr>0?'pos':'neg'}">${desv_egr>0?'+':''}${fmtP(desv_egr)}</td>
+        <td class="r">${fmt(pres_ing_ytd)}</td><td class="r">${fmt(real_ing_ytd)}</td>
+        <td class="r ${res_neto>=0?'neg':'pos'}">${fmtS(res_neto)}</td>
+        <td><span class="sem ${sc_egr}">${sl_egr}</span></td></tr></tfoot></table>
+    </div>
+
+    <div class="rep-sec">
+      <div class="rst">Membresía y cuotas</div>
+      <table><thead><tr><th>Categoría</th><th class="r">Socios</th><th class="r">Cuota social</th><th class="r">Cuota dep.</th><th class="r">Ing. mensual</th></tr></thead>
+      <tbody>
+        ${CATS_SOC.map((cat,i)=>`<tr><td>${cat}</td><td class="r">${a.socios[i]}</td>
+          <td class="r">${fmt(DATA.cuotas_soc[cat]||0)}</td>
+          <td class="r">${i<4?fmt(a.cuota_dep):'—'}</td>
+          <td class="r" style="color:var(--green)">${fmt(a.socios[i]*((DATA.cuotas_soc[cat]||0)+(i<4?a.cuota_dep:0)))}</td></tr>`).join('')}
+      </tbody>
+      <tfoot><tr class="tr-tot"><td>TOTAL</td><td class="r">${ts}</td><td></td><td></td><td class="r" style="color:var(--green)">${fmt(im)}</td></tr></tfoot></table>
+      <div style="margin-top:12px;background:var(--bg3);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--muted)">
+        <strong style="color:var(--text)">Cuota promedio ponderada:</strong> ${fmt(cp)}/socio/mes &nbsp;·&nbsp;
+        <strong style="color:var(--text)">Ingreso anual estimado:</strong> ${fmt(im*12)} &nbsp;·&nbsp;
+        <strong style="color:var(--text)">Espacio asignado:</strong> ${m2d.espacio||'—'} · ${m2d.m2||0} m² · ${m2d.hs_uso||0}hs/sem
+      </div>
+    </div>
+
+    <div class="rep-sec">
+      <div class="rst">Punto de equilibrio</div>
+      <div style="background:var(--bg3);border-radius:10px;padding:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div><div style="font-weight:600">${a.nombre}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Costo inst. asignado: ${fmt(ci)}/año · ${m2ef.toFixed(0)} m² efectivos</div></div>
+          <span class="sem ${cob>=1?'sg':cob>=0.7?'sy':'sr'}">${cob_lbl}</span>
+        </div>
+        <div class="bem" style="height:10px"><div class="bef" style="width:${Math.min(cob*100,100).toFixed(0)}%;background:${cob_col}"></div></div>
+        <div style="font-size:11px;color:var(--muted);text-align:right;margin-top:4px">${(cob*100).toFixed(1)}% cobertura</div>
+        <div class="bes" style="margin-top:14px">
+          <div><div class="bel">Socios necesarios</div><div class="bev" style="color:var(--accent)">${sn}</div></div>
+          <div><div class="bel">Socios actuales</div><div class="bev" style="color:${cob_col}">${ts}</div></div>
+          <div><div class="bel">Socios extra nec.</div><div class="bev" style="color:${cob>=1?'var(--green)':'var(--red)'}">${Math.max(0,sn-ts)}</div></div>
+          <div><div class="bel">Rent. por m²</div><div class="bev" style="color:${rm2>=0?'var(--green)':'var(--red)';font-size:13px}">${fmtS(rm2)}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rep-sec">
+      <div class="rst">Análisis y recomendaciones</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        ${[['✓ Principales logros','Completar en la hoja de reporte de la actividad.'],['⚠ Dificultades','Completar en la hoja de reporte de la actividad.'],['→ Recomendaciones','Completar en la hoja de reporte de la actividad.'],['📦 Necesidades de recursos','Completar en la hoja de reporte de la actividad.']].map(([t,c])=>`
+        <div style="background:var(--bg3);border-radius:8px;padding:14px 16px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">${t}</div>
+          <div style="font-size:12px;color:var(--muted)">${c}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="rep-ftr">
+      <div>${DATA.clubName} · Sistema de Gestión Presupuestaria · Ejercicio ${DATA.ejercicio}</div>
+      <div>Reporte generado: ${new Date().toLocaleDateString('es-AR')} · ${a.nombre} · Ene–${MESES[mes-1]}</div>
+    </div>
+  </div>`;
+}
+</script>
+</body>
+</html>

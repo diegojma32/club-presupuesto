@@ -398,10 +398,22 @@ function renderDesvios() {
     labs.push(a.area.replace(/^[^ ]+ /,''));
     dvals.push(d);
     cols.push(sc[0]==='sg'?'rgba(54,217,160,.6)':sc[0]==='sy'?'rgba(245,166,35,.6)':'rgba(240,82,82,.6)');
-    tb.innerHTML+='<tr><td>'+a.area+'</td><td style="color:#7880a0;font-size:11px">'+a.tipo+'</td><td class="r">'+fmt(p)+'</td><td class="r">'+fmt(r)+'</td><td class="r '+(d>0?'pos':'neg')">'+(d>0?'+':'')+fmt(d)+'</td><td class="r '+(d>0?'pos':'neg')">'+(d>0?'+':'')+fmtp(dp)+'</td><td>'+semb(dp)+'</td></tr>';
+    var desv_row = '<tr><td>'+a.area+'</td>';
+    desv_row += '<td style="color:#7880a0;font-size:11px">'+a.tipo+'</td>';
+    desv_row += '<td class="r">'+fmt(p)+'</td>';
+    desv_row += '<td class="r">'+fmt(r)+'</td>';
+    desv_row += '<td class="r '+(d>0?'pos':'neg')+'">'+(d>0?'+':'')+fmt(d)+'</td>';
+    desv_row += '<td class="r '+(d>0?'pos':'neg')+'">'+(d>0?'+':'')+fmtp(dp)+'</td>';
+    desv_row += '<td>'+semb(dp)+'</td></tr>';
+    tb.innerHTML += desv_row;
   });
   var dT=tR-tP,dpT=tP>0?dT/tP:0;
-  tb.innerHTML+='<tr class="tr-tot"><td>TOTAL</td><td></td><td class="r">'+fmt(tP)+'</td><td class="r">'+fmt(tR)+'</td><td class="r '+(dT>0?'pos':'neg')">'+(dT>0?'+':'')+fmt(dT)+'</td><td class="r '+(dT>0?'pos':'neg')">'+(dT>0?'+':'')+fmtp(dpT)+'</td><td>'+semb(dpT)+'</td></tr>';
+  var tr = '<tr class="tr-tot"><td>TOTAL</td><td></td>';
+  tr += '<td class="r">'+fmt(tP)+'</td><td class="r">'+fmt(tR)+'</td>';
+  tr += '<td class="r '+(dT>0?'pos':'neg')+'">'+(dT>0?'+':'')+fmt(dT)+'</td>';
+  tr += '<td class="r '+(dT>0?'pos':'neg')+'">'+(dT>0?'+':'')+fmtp(dpT)+'</td>';
+  tr += '<td>'+semb(dpT)+'</td></tr>';
+  tb.innerHTML += tr;
   document.getElementById('kpis-desvios').innerHTML =
     kpi('Desvío acumulado YTD',fmts(dT),'Real − Presupuesto',dT>0?'rojo':'verde') +
     kpi('Mayor desvío',fmt(mD),mA,'amarillo') +
@@ -422,7 +434,18 @@ function renderBE() {
     var col=cob>=1?'#36d9a0':cob>=0.7?'#f5a623':'#f05252';
     var lbl=cob>=1?'🟢 Auto':cob>=0.7?'🟡 Sub':'🔴 Crítica';
     if(cob>=1)auto++; else if(cob>=0.7)mod++; else crit++;
-    cards.innerHTML+='<div class="be-card"><div class="be-nombre">'+a.nombre+'<span class="sem '+(cob>=1?'sg':cob>=0.7?'sy':'sr')+'" style="font-size:11px">'+lbl+'</span></div><div class="be-barra-cont"><div class="be-barra" style="width:'+Math.min(cob*100,100).toFixed(0)+'%;background:'+col+'"></div></div><div class="be-pct">'+(cob*100).toFixed(1)+'% cobertura</div><div class="be-stats"><div><div class="be-stat-lbl">Necesarios</div><div class="be-stat-val" style="color:#4f7cff">'+sn+'</div></div><div><div class="be-stat-lbl">Actuales</div><div class="be-stat-val" style="color:'+col+'">'+ts+'</div></div><div><div class="be-stat-lbl">Déficit/Sup.</div><div class="be-stat-val" style="color:'+(im*12-ci>=0?'#36d9a0':'#f05252');font-size:13px">'+fmts(im*12-ci)+'</div></div><div><div class="be-stat-lbl">Cuota prom.</div><div class="be-stat-val" style="font-size:13px">'+fmt(cp)+'</div></div></div></div>';
+    var behtml = '<div class="be-card">';
+    behtml += '<div class="be-nombre">'+a.nombre+'<span class="sem '+(cob>=1?'sg':cob>=0.7?'sy':'sr')+'" style="font-size:11px">'+lbl+'</span></div>';
+    behtml += '<div class="be-barra-cont"><div class="be-barra" style="width:'+Math.min(cob*100,100).toFixed(0)+'%;background:'+col+'"></div></div>';
+    behtml += '<div class="be-pct">'+(cob*100).toFixed(1)+'% cobertura</div>';
+    behtml += '<div class="be-stats">';
+    behtml += '<div><div class="be-stat-lbl">Necesarios</div><div class="be-stat-val" style="color:#4f7cff">'+sn+'</div></div>';
+    behtml += '<div><div class="be-stat-lbl">Actuales</div><div class="be-stat-val" style="color:'+col+'">'+ts+'</div></div>';
+    var defcolor = (im*12-ci>=0) ? '#36d9a0' : '#f05252';
+    behtml += '<div><div class="be-stat-lbl">Déficit/Sup.</div><div class="be-stat-val" style="color:'+defcolor+';font-size:13px">'+fmts(im*12-ci)+'</div></div>';
+    behtml += '<div><div class="be-stat-lbl">Cuota prom.</div><div class="be-stat-val" style="font-size:13px">'+fmt(cp)+'</div></div>';
+    behtml += '</div></div>';
+    cards.innerHTML += behtml;
   });
   document.getElementById('kpis-be').innerHTML =
     kpi('Autosustentables',auto,'Cobertura ≥ 100%','verde') +

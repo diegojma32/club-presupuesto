@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sistema Presupuestario — Club Deportivo</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<style>:root{--font-override:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;--mono-override:"Courier New",Courier,monospace;}</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0f1117;--bg2:#171b26;--bg3:#1e2334;--border:#2a3045;
@@ -158,28 +158,24 @@ tr:hover td{background:var(--bg3)}
 </style>
 </head>
 <body ondragover="event.preventDefault()" ondrop="event.preventDefault()">
-<script>
-window.addEventListener('load', function() {
-  const err = document.getElementById('upload-error');
-  if (!window.XLSX && err) err.textContent = '⚠ Error cargando librerías. Verificá tu conexión a internet y recargá la página.';
-});
-</script>
 
 <!-- ══ UPLOAD SCREEN ══ -->
 <div class="upload-screen" id="upload-screen">
   <div class="upload-logo">📊</div>
   <div class="upload-title">Sistema Presupuestario</div>
   <div class="upload-sub">Cargá el archivo Excel del club para ver el dashboard,<br>los reportes y el análisis completo en tiempo real.</div>
-  <div class="upload-zone" id="drop-zone" 
-    onclick="document.getElementById('file-input').click()" 
+  <div class="upload-zone" id="drop-zone"
     ondragover="return ev(event)" 
     ondragenter="return ev(event)"
     ondragleave="document.getElementById('drop-zone').classList.remove('drag')"
-    ondrop="return drop(event)">
+    ondrop="return drop(event)"
+    style="position:relative;cursor:pointer">
     <div class="upload-zone-icon">📂</div>
     <div class="upload-zone-label">Hacer clic o arrastrar el archivo aquí</div>
     <div class="upload-zone-hint">presupuesto_club_v3.xlsx · presupuesto_club_v4.xlsx</div>
-    <input type="file" id="file-input" class="upload-btn" accept=".xlsx" onchange="loadFile(this.files[0])">
+    <input type="file" id="file-input" accept=".xlsx" 
+      onchange="loadFile(this.files[0])"
+      style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0">
   </div>
   <div class="upload-error" id="upload-error"></div>
   <div class="upload-note">🔒 El archivo se procesa localmente en tu navegador. No se sube a ningún servidor.</div>
@@ -362,16 +358,12 @@ function loadFile(file) {
     return;
   }
   errEl.textContent = '';
-  const lbl = document.getElementById('drop-zone').querySelector('.upload-zone-label'); if(lbl) lbl.textContent = 'Cargando ' + file.name + '...';
+  document.getElementById('drop-zone').querySelector('.upload-zone-label').textContent = 'Cargando ' + file.name + '...';
   const reader = new FileReader();
   reader.onerror = () => { errEl.textContent = '⚠ Error al leer el archivo. Intentá de nuevo.'; };
   reader.onload = e => {
     try {
-      if (!window.XLSX) { 
-    errEl.textContent = '⚠ Cargando librerías... intentá de nuevo en unos segundos.';
-    setTimeout(() => { errEl.textContent = ''; }, 3000);
-    return; 
-  }
+      if (!window.XLSX) { errEl.textContent = '⚠ Librería XLSX no cargada. Verificá la conexión a internet.'; return; }
       const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
       if (!wb.SheetNames || wb.SheetNames.length === 0) { errEl.textContent = '⚠ El archivo no tiene hojas válidas.'; return; }
       DATA = parseWorkbook(wb);
@@ -380,7 +372,7 @@ function loadFile(file) {
     } catch(err) {
       errEl.textContent = '⚠ Error: ' + err.message;
       console.error('loadFile error:', err);
-      const lbl2 = document.getElementById('drop-zone').querySelector('.upload-zone-label'); if(lbl2) lbl2.textContent = 'Hacer clic o arrastrar el archivo aquí';
+      document.getElementById('drop-zone').querySelector('.upload-zone-label').textContent = 'Hacer clic o arrastrar el archivo aquí';
     }
   };
   reader.readAsArrayBuffer(file);

@@ -206,49 +206,54 @@ function parsear(wb) {
   if (!wsp) throw new Error('No se encontró la hoja "📋 Premisas". Verificá que sea el archivo correcto.');
   var p = XLSX.utils.sheet_to_json(wsp, {header:1, defval:null});
 
+  // p[i] = Excel row i+1
+  // Club name: Excel row 5 = p[4], col C = index 2
   d.club = (p[4] && p[4][2]) ? String(p[4][2]) : 'Club Deportivo';
   d.ejercicio = (p[5] && p[5][2]) ? p[5][2] : 2025;
 
-  // Ajuste salarial
+  // Ajuste salarial: Excel rows 14-25 = p[13]-p[24], cols B=1,C=2,D=3,E=4
   d.ajuste = [];
   for (var i=13; i<=24; i++) {
     var r = p[i];
     if (r && r[1]) d.ajuste.push({mes:r[1], pct:r[2]||0, factor:r[3]||1, base:r[4]||100000});
   }
 
-  // Cuotas sociales
+  // Cuotas sociales: Excel rows 29-33 = p[28]-p[32], cols B=1,C=2
   d.cuotas = {};
   for (var i=28; i<=32; i++) {
     var r = p[i];
     if (r && r[1]) d.cuotas[r[1]] = r[2]||0;
   }
 
-  // Actividades
+  // Actividades: Excel rows 38-47 = p[37]-p[46]
+  // cols: B=1(nombre), C=2(cuota_dep), D=3(inf), E=4(adu), F=5(fam), G=6(nop), H=7(vit), I=8(total)
   d.actividades = [];
   for (var i=37; i<=46; i++) {
     var r = p[i];
     if (r && r[1] && r[1] !== 'TOTAL') {
       d.actividades.push({
-        nombre: r[1], cuota_dep: r[2]||0,
+        nombre: String(r[1]), cuota_dep: r[2]||0,
         socios: [r[3]||0, r[4]||0, r[5]||0, r[6]||0, r[7]||0],
         total: r[8]||0
       });
     }
   }
 
-  // Costo institucional y M2
-  d.costo_inst = (p[52] && p[52][8]) ? p[52][8] : 15000000;
-  d.m2_total = (p[51] && p[51][4]) ? p[51][4] : 3000;
+  // M2: Excel row 53 = p[52] has costo_inst at col I=8, m2_total at col E=4
+  d.costo_inst = (p[51] && p[51][8]) ? p[51][8] : 15000000;
+  d.m2_total   = (p[51] && p[51][4]) ? p[51][4] : 3000;
+  // M2 data: Excel rows 56-65 = p[55]-p[64]
+  // cols: B=1,C=2,D=3,E=4,F=5,G=6,H=7,I=8,J=9,K=10
   d.m2 = {};
   for (var i=55; i<=64; i++) {
     var r = p[i];
     if (r && r[1] && r[1] !== 'TOTALES') {
-      d.m2[r[1]] = {espacio:r[2], m2:r[3]||0, hs_uso:r[4]||0, hs_tot:r[5]||84,
+      d.m2[String(r[1])] = {espacio:r[2], m2:r[3]||0, hs_uso:r[4]||0, hs_tot:r[5]||84,
         factor:r[6]||0, m2ef:r[7]||0, costo:r[8]||0, ing:r[9]||0, rent:r[10]||0};
     }
   }
 
-  // Umbrales semáforo
+  // Umbrales semáforo: Excel rows 69-70 = p[68]-p[69], col C=2
   d.u_va = (p[68] && p[68][2] != null) ? p[68][2] : 0.05;
   d.u_ar = (p[69] && p[69][2] != null) ? p[69][2] : 0.10;
 
@@ -257,11 +262,14 @@ function parsear(wb) {
   d.seg = [];
   if (wss) {
     var s = XLSX.utils.sheet_to_json(wss, {header:1, defval:0});
+    // Row 0=title, 1=note, 2=group headers, 3=month labels, 4+=data
+    // Pres: cols 5-16 (F-Q), Real: cols 18-29 (S-AD)
     for (var i=4; i<s.length; i++) {
       var r = s[i];
-      if (!r[1] || r[1]==='TOTAL CONSOLIDADO' || typeof r[1]!=='string') continue;
+      if (!r[1] || typeof r[1]!=='string') continue;
+      if (r[1]==='TOTAL CONSOLIDADO') continue;
       d.seg.push({
-        area: r[1], tipo: r[2],
+        area: r[1], tipo: r[2]||'',
         pres: MESES.map(function(_,k){ return parseFloat(r[5+k])||0; }),
         real: MESES.map(function(_,k){ return parseFloat(r[18+k])||0; })
       });
